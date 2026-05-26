@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/session_start.js\"",
+            "timeout": 7,
+            "statusMessage": "checking model performance"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "model-degradation-tracker",
+  "interface": {
+    "displayName": "Model Degradation Tracker"
+  },
+  "plugins": [
+    {
+      "name": "model-degradation-tracker",
+      "source": {
+        "source": "local",
+        "path": "./plugins/model-degradation-tracker"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

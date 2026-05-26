@@ -1,0 +1,30 @@
+{
+  "name": "model-degradation-tracker",
+  "version": "0.1.0",
+  "description": "Shows current Marginlab Codex tracker status on Codex startup.",
+  "author": {
+    "name": "Verce11o"
+  },
+  "repository": "https://github.com/Verce11o/model-degradation-tracker",
+  "license": "TBD",
+  "keywords": [
+    "codex",
+    "marginlab",
+    "status"
+  ],
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "Model Degradation Tracker",
+    "shortDescription": "Shows Marginlab Codex status on startup",
+    "longDescription": "Shows current Marginlab Codex tracker status when a Codex session starts or resumes.",
+    "developerName": "Verce11o",
+    "category": "Productivity",
+    "capabilities": [
+      "Hooks"
+    ],
+    "defaultPrompt": [
+      "Check Codex model status"
+    ],
+    "brandColor": "#111827"
+  }
+}

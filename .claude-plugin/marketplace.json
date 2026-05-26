@@ -1,0 +1,21 @@
+{
+  "name": "model-degradation-tracker",
+  "owner": {
+    "name": "Verce11o"
+  },
+  "plugins": [
+    {
+      "name": "model-degradation-tracker",
+      "displayName": "Model Degradation Tracker",
+      "source": "./plugins/model-degradation-tracker",
+      "description": "Shows current Marginlab tracker status in Codex startup hooks and Claude Code statusline.",
+      "category": "productivity",
+      "tags": [
+        "statusline",
+        "marginlab",
+        "codex",
+        "claude-code"
+      ]
+    }
+  ]
+}

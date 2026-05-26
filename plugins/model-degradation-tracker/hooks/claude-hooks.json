@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e 'const fs=require(\"node:fs\"),os=require(\"node:os\"),path=require(\"node:path\");let root=process.env.CLAUDE_PLUGIN_ROOT;if(!root){try{const data=JSON.parse(fs.readFileSync(path.join(os.homedir(),\".claude\",\"plugins\",\"installed_plugins.json\"),\"utf8\"));root=data.plugins?.[\"model-degradation-tracker@model-degradation-tracker\"]?.[0]?.installPath}catch{}}if(root)require(path.join(root,\"scripts\",\"install-statusline.js\"))'",
+            "timeout": 7
+          }
+        ]
+      }
+    ]
+  }
+}
