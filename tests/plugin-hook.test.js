@@ -39,7 +39,7 @@ test("manifest and marketplace reference plugin hook", () => {
 
   assert.equal(manifest.hooks, "./hooks/hooks.json");
   assert.equal(hooks.hooks.SessionStart[0].matcher, "startup|resume");
-  assert.equal(hooks.hooks.SessionStart[0].hooks[0].command, "node \"$PLUGIN_ROOT/hooks/session_start.js\"");
+  assert.equal(hooks.hooks.SessionStart[0].hooks[0].command, "if [ -n \"$PLUGIN_ROOT\" ]; then node \"$PLUGIN_ROOT/hooks/session_start.js\"; fi");
   assert.equal(marketplace.plugins[0].source.path, "./plugins/model-degradation-tracker");
 });
 
