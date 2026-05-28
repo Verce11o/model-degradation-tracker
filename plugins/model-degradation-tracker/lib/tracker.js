@@ -8,6 +8,7 @@ const { fileURLToPath } = require("node:url");
 const APP_NAME = "model-degradation-tracker";
 const DEFAULT_CACHE_TTL_SECONDS = 900;
 const DEFAULT_HTTP_TIMEOUT_SECONDS = 5;
+const DEGRADED_DELTA_THRESHOLD_POINTS = -15;
 
 function currentStatus(options) {
   const cached = readCachedStatus(options);
@@ -63,13 +64,13 @@ function fetchSource(sourceUrl, timeoutSeconds) {
 }
 
 function parseTrackerHtml(contents, sourceUrl, tracker) {
-  const status = parseSummaryText(contents, /<span>Status<\/span>.*?<span[^>]*>\s*([^<]+?)\s*<\/span>/s);
   const lastUpdated = parseSummaryText(contents, /Last updated:\s*<\/span>\s*<span[^>]*>\s*([^<]+?)\s*<\/span>/s);
   const baseline = parseFloatConst(contents, "baselinePercent");
   const today = parseLatestDailyPassRate(contents);
   const delta = today - baseline;
   const deltaPoints = roundHalfAwayFromZero(delta);
-  const direction = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+  const direction = directionForDelta(delta);
+  const status = statusForDeltaPoints(deltaPoints);
 
   return {
     tracker,
@@ -121,6 +122,9 @@ function parseLatestDailyPassRate(contents) {
 }
 
 function displayStatus(status, direction, deltaPoints) {
+  if (status.toLowerCase() === "unknown" || !Number.isFinite(deltaPoints)) {
+    return status;
+  }
   if (direction === "up") {
     return `${status}, ↑ ${Math.abs(deltaPoints)}%`;
   }
@@ -128,6 +132,20 @@ function displayStatus(status, direction, deltaPoints) {
     return `${status}, ↓ ${Math.abs(deltaPoints)}%`;
   }
   return `${status}, 0%`;
+}
+
+function statusForDeltaPoints(deltaPoints) {
+  return deltaPoints <= DEGRADED_DELTA_THRESHOLD_POINTS ? "Degraded" : "Nominal";
+}
+
+function directionForDelta(delta) {
+  if (delta > 0) {
+    return "up";
+  }
+  if (delta < 0) {
+    return "down";
+  }
+  return "flat";
 }
 
 function severityForStatus(status) {
@@ -151,7 +169,7 @@ function unknownStatus(sourceUrl, tracker) {
     today_pass_rate: null,
     delta_points: null,
     direction: "unknown",
-    display: "Status: Unknown",
+    display: "Unknown",
     last_updated: null,
     source_url: sourceUrl,
   };
@@ -164,10 +182,29 @@ function readCachedStatus(options) {
     if (Date.now() / 1000 - Number(payload.cached_at) > options.cacheTtlSeconds()) {
       return null;
     }
-    return payload.status;
+    return normalizeCachedStatus(payload.status);
   } catch {
     return null;
   }
+}
+
+function normalizeCachedStatus(status) {
+  if (!status || typeof status !== "object") {
+    return status;
+  }
+  const deltaPoints = Number(status.delta_points);
+  if (!Number.isFinite(deltaPoints)) {
+    return status;
+  }
+  const label = statusForDeltaPoints(deltaPoints);
+  const direction = typeof status.direction === "string" ? status.direction : directionForDelta(deltaPoints);
+  return {
+    ...status,
+    status: label,
+    severity: severityForStatus(label),
+    direction,
+    display: displayStatus(label, direction, deltaPoints),
+  };
 }
 
 function writeCachedStatus(options, status) {

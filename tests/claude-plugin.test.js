@@ -129,15 +129,95 @@ test("statusline falls back to resilient base statusline backup when plugin data
   assert.equal(line, `base status | ${ansiGreen}Nominal${ansiReset}, ↓ 5%`);
 });
 
-test("statusline colors non nominal status orange", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "model-tracker-color-"));
+test("statusline ignores source status label when delta is nominal", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "model-tracker-source-status-"));
   const home = path.join(root, "home");
   const pluginData = path.join(root, "plugin-data");
   const source = path.join(root, "tracker.html");
   fs.writeFileSync(source, trackerHtml.replace(" Nominal ", " Degraded "));
   fs.mkdirSync(pluginData, { recursive: true });
 
-  assert.equal(runStatusline(home, pluginData, source), `${ansiOrange}Degraded${ansiReset}, ↓ 5%`);
+  assert.equal(runStatusline(home, pluginData, source), `${ansiGreen}Nominal${ansiReset}, ↓ 5%`);
+});
+
+test("statusline ignores verbose degradation status when delta is nominal", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "model-tracker-verbose-status-"));
+  const home = path.join(root, "home");
+  const pluginData = path.join(root, "plugin-data");
+  const source = path.join(root, "tracker.html");
+  fs.writeFileSync(source, trackerHtml.replace(" Nominal ", " Degradation detected over past 7 days "));
+  fs.mkdirSync(pluginData, { recursive: true });
+
+  assert.equal(runStatusline(home, pluginData, source), `${ansiGreen}Nominal${ansiReset}, ↓ 5%`);
+});
+
+test("statusline marks 15 point drop as degraded", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "model-tracker-threshold-status-"));
+  const home = path.join(root, "home");
+  const pluginData = path.join(root, "plugin-data");
+  const source = path.join(root, "tracker.html");
+  fs.writeFileSync(source, trackerHtml.replace("51.019999999999996", "41.00000000000001"));
+  fs.mkdirSync(pluginData, { recursive: true });
+
+  assert.equal(runStatusline(home, pluginData, source), `${ansiOrange}Degraded${ansiReset}, ↓ 15%`);
+});
+
+test("statusline shortens verbose degradation status from cache", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "model-tracker-cached-verbose-status-"));
+  const home = path.join(root, "home");
+  const pluginData = path.join(root, "plugin-data");
+  const source = path.join(root, "missing.html");
+  fs.mkdirSync(pluginData, { recursive: true });
+  fs.writeFileSync(
+    path.join(pluginData, "claude-code.json"),
+    `${JSON.stringify({
+      cached_at: Date.now() / 1000,
+      status: {
+        tracker: "claude-code",
+        available: true,
+        status: "Degradation detected over past 7 days",
+        severity: "warning",
+        baseline_pass_rate: 56,
+        today_pass_rate: 41,
+        delta_points: -15,
+        direction: "down",
+        display: "Degradation detected over past 7 days, ↓ 15%",
+        last_updated: "May 26, 2026",
+        source_url: pathToFileURL(source).href,
+      },
+    })}\n`,
+  );
+
+  assert.equal(runStatusline(home, pluginData, source), `${ansiOrange}Degraded${ansiReset}, ↓ 15%`);
+});
+
+test("statusline recalculates cached source status from delta", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "model-tracker-cached-source-status-"));
+  const home = path.join(root, "home");
+  const pluginData = path.join(root, "plugin-data");
+  const source = path.join(root, "missing.html");
+  fs.mkdirSync(pluginData, { recursive: true });
+  fs.writeFileSync(
+    path.join(pluginData, "claude-code.json"),
+    `${JSON.stringify({
+      cached_at: Date.now() / 1000,
+      status: {
+        tracker: "claude-code",
+        available: true,
+        status: "Degraded",
+        severity: "warning",
+        baseline_pass_rate: 56,
+        today_pass_rate: 51,
+        delta_points: -5,
+        direction: "down",
+        display: "Degraded, ↓ 5%",
+        last_updated: "May 26, 2026",
+        source_url: pathToFileURL(source).href,
+      },
+    })}\n`,
+  );
+
+  assert.equal(runStatusline(home, pluginData, source), `${ansiGreen}Nominal${ansiReset}, ↓ 5%`);
 });
 
 test("claude manifest and marketplace reference plugin hook", () => {
