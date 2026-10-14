@@ -162,6 +162,28 @@ test("statusline marks 15 point drop as degraded", () => {
   assert.equal(runStatusline(home, pluginData, source), `${ansiOrange}Degraded${ansiReset}, ↓ 15%`);
 });
 
+test("statusline computes degraded status itself while baseline is collecting", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "model-tracker-collecting-degraded-"));
+  const home = path.join(root, "home");
+  const pluginData = path.join(root, "plugin-data");
+  const source = path.join(root, "tracker.html");
+  fs.writeFileSync(source, collectingBaselineHtml([80, 90, 85, 70, 68, 66, 65, 64, 63, 62]));
+  fs.mkdirSync(pluginData, { recursive: true });
+
+  assert.equal(runStatusline(home, pluginData, source), `${ansiOrange}Degraded${ansiReset}, ↓ 23%`);
+});
+
+test("statusline computes nominal status itself while baseline is collecting", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "model-tracker-collecting-nominal-"));
+  const home = path.join(root, "home");
+  const pluginData = path.join(root, "plugin-data");
+  const source = path.join(root, "tracker.html");
+  fs.writeFileSync(source, collectingBaselineHtml([80, 90, 85, 84, 86, 83, 85, 84, 86, 80]));
+  fs.mkdirSync(pluginData, { recursive: true });
+
+  assert.equal(runStatusline(home, pluginData, source), `${ansiGreen}Nominal${ansiReset}, ↓ 5%`);
+});
+
 test("statusline shortens verbose degradation status from cache", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "model-tracker-cached-verbose-status-"));
   const home = path.join(root, "home");
@@ -271,6 +293,14 @@ test("claude hook command falls back to installed plugin path when plugin root i
   assert.equal(settings.statusLine.command.includes(path.join(home, ".claude", "plugins", "data", "model-degradation-tracker-model-degradation-tracker")), true);
   assert.equal(settings.statusLine.command.includes("claude-code-statusline.js"), true);
 });
+
+function collectingBaselineHtml(passRates) {
+  const points = passRates.map((passRate, index) => ({ date: `2026-05-${String(index + 1).padStart(2, "0")}`, passRate }));
+  return trackerHtml
+    .replace(/const dailyChartData = .*;/, `const dailyChartData = ${JSON.stringify(points)};`)
+    .replace("const baselinePercent = 56.00000000000001;", "const baselinePercent = undefined;")
+    .replace(" Nominal ", " Collecting baseline data ");
+}
 
 function runInstaller(home, pluginData) {
   const script = path.join(repo, "plugins/model-degradation-tracker/scripts/install-statusline.js");

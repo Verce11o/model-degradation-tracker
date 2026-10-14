@@ -9,6 +9,7 @@ const APP_NAME = "model-degradation-tracker";
 const DEFAULT_CACHE_TTL_SECONDS = 900;
 const DEFAULT_HTTP_TIMEOUT_SECONDS = 5;
 const DEGRADED_DELTA_THRESHOLD_POINTS = -15;
+const BASELINE_FALLBACK_RECENT_POINTS = 7;
 
 function currentStatus(options) {
   const cached = readCachedStatus(options);
@@ -65,8 +66,9 @@ function fetchSource(sourceUrl, timeoutSeconds) {
 
 function parseTrackerHtml(contents, sourceUrl, tracker) {
   const lastUpdated = parseSummaryText(contents, /Last updated:\s*<\/span>\s*<span[^>]*>\s*([^<]+?)\s*<\/span>/s);
-  const baseline = parseFloatConst(contents, "baselinePercent");
-  const today = parseLatestDailyPassRate(contents);
+  const dailyPassRates = parseDailyPassRates(contents);
+  const baseline = parseOptionalFloatConst(contents, "baselinePercent") ?? fallbackBaseline(dailyPassRates);
+  const today = dailyPassRates[dailyPassRates.length - 1];
   const delta = today - baseline;
   const deltaPoints = roundHalfAwayFromZero(delta);
   const direction = directionForDelta(delta);
@@ -99,16 +101,16 @@ function parseSummaryText(contents, pattern) {
   return value;
 }
 
-function parseFloatConst(contents, name) {
+function parseOptionalFloatConst(contents, name) {
   const pattern = new RegExp(`const\\s+${escapeRegExp(name)}\\s*=\\s*([0-9]+(?:\\.[0-9]+)?);`);
   const match = contents.match(pattern);
   if (!match) {
-    throw new Error(`${name} not found`);
+    return null;
   }
   return Number.parseFloat(match[1]);
 }
 
-function parseLatestDailyPassRate(contents) {
+function parseDailyPassRates(contents) {
   const match = contents.match(/const\s+dailyChartData\s*=\s*(\[.*?\]);/s);
   if (!match) {
     throw new Error("dailyChartData not found");
@@ -117,8 +119,16 @@ function parseLatestDailyPassRate(contents) {
   if (!Array.isArray(points) || points.length === 0) {
     throw new Error("dailyChartData is empty");
   }
-  const latest = points.reduce((best, point) => (String(point.date) > String(best.date) ? point : best), points[0]);
-  return Number.parseFloat(latest.passRate);
+  return [...points]
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .map((point) => Number.parseFloat(point.passRate));
+}
+
+function fallbackBaseline(dailyPassRates) {
+  const history = dailyPassRates.length > BASELINE_FALLBACK_RECENT_POINTS
+    ? dailyPassRates.slice(0, -BASELINE_FALLBACK_RECENT_POINTS)
+    : dailyPassRates;
+  return history.reduce((sum, value) => sum + value, 0) / history.length;
 }
 
 function displayStatus(status, direction, deltaPoints) {

@@ -32,6 +32,16 @@ test("session start payload uses plugin data cache", () => {
   assert.deepEqual(runPluginHook(source, pluginData), payload);
 });
 
+test("session start payload computes status itself while baseline is collecting", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "model-tracker-codex-collecting-"));
+  const source = path.join(root, "tracker.html");
+  const pluginData = path.join(root, "plugin-data");
+  fs.writeFileSync(source, collectingBaselineHtml([80, 90, 85, 70, 68, 66, 65, 64, 63, 62]));
+
+  const payload = runPluginHook(source, pluginData);
+  assert.equal(payload.systemMessage, "Today's performance: Degraded, ↓ 23% Performance may be degraded today");
+});
+
 test("manifest and marketplace reference plugin hook", () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(repo, "plugins/model-degradation-tracker/.codex-plugin/plugin.json"), "utf8"));
   const hooks = JSON.parse(fs.readFileSync(path.join(repo, "plugins/model-degradation-tracker/hooks/hooks.json"), "utf8"));
@@ -42,6 +52,14 @@ test("manifest and marketplace reference plugin hook", () => {
   assert.equal(hooks.hooks.SessionStart[0].hooks[0].command, "if [ -n \"$PLUGIN_ROOT\" ]; then node \"$PLUGIN_ROOT/hooks/session_start.js\"; fi");
   assert.equal(marketplace.plugins[0].source.path, "./plugins/model-degradation-tracker");
 });
+
+function collectingBaselineHtml(passRates) {
+  const points = passRates.map((passRate, index) => ({ date: `2026-05-${String(index + 1).padStart(2, "0")}`, passRate }));
+  return trackerHtml
+    .replace(/const dailyChartData = .*;/, `const dailyChartData = ${JSON.stringify(points)};`)
+    .replace("const baselinePercent = 56.00000000000001;", "const baselinePercent = undefined;")
+    .replace(" Nominal ", " Collecting baseline data ");
+}
 
 function runPluginHook(source, pluginData) {
   const script = path.join(repo, "plugins/model-degradation-tracker/hooks/session_start.js");
